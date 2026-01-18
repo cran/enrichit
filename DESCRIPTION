@@ -1,9 +1,8 @@
 Package: enrichit
 Title: 'C++' Implementations of Functional Enrichment Analysis
-Version: 0.0.9
+Version: 0.1.0
 Authors@R: person(given = "Guangchuang", family = "Yu",
                email = "guangchuangyu@gmail.com", role  = c("aut", "cre"))
-Author: Guangchuang Yu [aut, cre]
 Maintainer: Guangchuang Yu <guangchuangyu@gmail.com>
 Description: Fast implementations of functional enrichment analysis methods using 'C++' via 'Rcpp'.
     Currently provides Over-Representation Analysis (ORA) and Gene Set Enrichment Analysis (GSEA).
@@ -19,6 +18,7 @@ Encoding: UTF-8
 VignetteBuilder: quarto
 RoxygenNote: 7.3.3
 NeedsCompilation: yes
-Packaged: 2026-01-10 14:34:40 UTC; HUAWEI
+Packaged: 2026-01-18 09:19:50 UTC; HUAWEI
+Author: Guangchuang Yu [aut, cre]
 Repository: CRAN
-Date/Publication: 2026-01-10 14:50:02 UTC
+Date/Publication: 2026-01-18 10:00:09 UTC

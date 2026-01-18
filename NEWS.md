@@ -1,3 +1,12 @@
+# enrichit 0.1.0
+
++ fix bugs in `gsea_gson()` and `ora_gson()` (2026-01-11, Sun)
+    - handle missing columns (e.g., qvalues) gracefully by filling with NA
+    - handle `NA` or duplicate gene set IDs in result rownames to prevent errors
++ improve robustness of `calculate_qvalue()` (2026-01-11, Sun)
+    - return NA instead of NULL when qvalue calculation fails
++ update `ora_gson()` output columns (2026-01-11, Sun)
+
 # enrichit 0.0.9
 
 + add leading edge analysis for GSEA (2026-01-10, Sat)
