@@ -1,3 +1,8 @@
+# enrichit 0.1.1
+
++ update `setReadable()` to support converting gene ID to other types (not limited to SYMBOL) (2026-01-21, Wed)
++ add `organism` slot in `compareClusterResult` (2026-01-20, Tue)
+
 # enrichit 0.1.0
 
 + fix bugs in `gsea_gson()` and `ora_gson()` (2026-01-11, Sun)
