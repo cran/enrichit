@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Guangchuang Yu School of Basic Medical Sciences, Southern Medical University">
-<meta name="dcterms.date" content="2026-03-10">
+<meta name="dcterms.date" content="2026-04-08">
 
 <title>Introduction to enrichit</title>
 <style>
@@ -212,7 +212,7 @@ text-decoration: underline; }
 <p class="author">Guangchuang Yu<br>
 School of Basic Medical Sciences, Southern Medical University</p>
 
-<p class="date">2026-03-10</p>
+<p class="date">2026-04-08</p>
 </header>
 
 
@@ -266,7 +266,7 @@ $$</span></p>
 1 PathwayA      50    20     20         1000 1.388265e-28
 2 PathwayB      51     0     20         1000 1.000000e+00
                                                                                                                               geneID
-1 Gene14/Gene19/Gene7/Gene1/Gene8/Gene17/Gene4/Gene3/Gene11/Gene10/Gene18/Gene9/Gene6/Gene12/Gene15/Gene5/Gene13/Gene16/Gene2/Gene20
+1 Gene8/Gene17/Gene2/Gene12/Gene6/Gene14/Gene20/Gene18/Gene9/Gene13/Gene16/Gene1/Gene7/Gene19/Gene3/Gene4/Gene5/Gene15/Gene11/Gene10
 2                                                                                                                                   
   GeneRatio BgRatio RichFactor FoldEnrichment
 1     20/20 50/1000        0.4             20
@@ -307,15 +307,19 @@ $$</span></p>
 <span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">nPerm =</span> <span class="dv">1000</span>,    <span class="co"># Base permutations</span></span>
 <span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">minGSSize =</span> <span class="dv">10</span>,</span>
 <span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">maxGSSize =</span> <span class="dv">500</span></span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co"># View results</span></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(gsea_result)</span></code></pre></div>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in gsea(geneList = geneList, gene_sets = gene_sets, method =
+&quot;multilevel&quot;, : For some pathways, in reality P-values are less than 1e-10. You
+can set the eps argument to zero for better estimation.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View results</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(gsea_result)</span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>             ID enrichmentScore        NES       pvalue setSize   log2err rank
-1    PathwayTop       1.0000000  3.9449035 2.491505e-12      50 0.8986712   50
-2 PathwayBottom      -1.0000000 -3.7744199 1.797993e-12      50 0.9101197   51
-3 PathwayRandom      -0.2638292 -0.9958021 4.639175e-01      50       NaN  126
+<pre><code>             ID enrichmentScore        NES       pvalue setSize    log2err rank
+1    PathwayTop       1.0000000  3.9449035 0.0000000001      50        NaN   50
+2 PathwayBottom      -1.0000000 -3.7744199 0.0000000001      50        NaN   51
+3 PathwayRandom      -0.2638292 -0.9958021 0.4639175258      50 0.07511816  126
                      leading_edge
 1 tags=100%, list=5%, signal=100%
 2 tags=100%, list=5%, signal=100%
@@ -329,12 +333,12 @@ $$</span></p>
 <h1 id="working-with-gson">Working with GSON</h1>
 <p><code>enrichit</code> works seamlessly with <code>GSON</code> objects, which are used to store gene set information along with metadata. The <code>GSON</code> class is defined in the <a href="https://CRAN.R-project.org/package=gson">gson</a> package. It provides a structured way to handle gene sets, including gene identifiers, gene set names, and other associated information.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Assuming you have a GSON object &#39;g&#39;</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># result &lt;- gsea_gson(geneList = geneList, gson = g)</span></span></code></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Assuming you have a GSON object &#39;g&#39;</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># result &lt;- gsea_gson(geneList = geneList, gson = g)</span></span></code></pre></div>
 </div>
 <h1 id="session-info">Session Info</h1>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>R version 4.5.2 (2025-10-31 ucrt)
 Platform: x86_64-w64-mingw32/x64
@@ -357,14 +361,14 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
-[1] enrichit_0.1.1
+[1] enrichit_0.1.3.001
 
 loaded via a namespace (and not attached):
  [1] digest_0.6.39     fastmap_1.2.0     xfun_0.56         yulab.utils_0.2.4
- [5] rappdirs_0.3.4    knitr_1.51        htmltools_0.5.9   rmarkdown_2.30   
+ [5] rappdirs_0.3.4    knitr_1.51        htmltools_0.5.9   rmarkdown_2.31   
  [9] cli_3.6.5         compiler_4.5.2    tools_4.5.2       evaluate_1.0.5   
-[13] Rcpp_1.1.1        yaml_2.3.12       otel_0.2.0        rlang_1.1.7      
-[17] jsonlite_2.0.0    fs_1.6.6         </code></pre>
+[13] Rcpp_1.1.1        yaml_2.3.12       otel_0.2.0        rlang_1.2.0      
+[17] jsonlite_2.0.0    fs_2.0.1         </code></pre>
 </div>
 </div>
 
