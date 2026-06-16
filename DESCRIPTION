@@ -1,6 +1,6 @@
 Package: enrichit
 Title: 'C++' Implementations of Functional Enrichment Analysis
-Version: 0.1.4
+Version: 0.1.5
 Authors@R: person(given = "Guangchuang", family = "Yu",
                email = "guangchuangyu@gmail.com", role  = c("aut", "cre"))
 Maintainer: Guangchuang Yu <guangchuangyu@gmail.com>
@@ -16,9 +16,9 @@ Suggests: AnnotationDbi, clusterProfiler, DOSE, gson, qvalue, quarto,
         testthat
 Encoding: UTF-8
 VignetteBuilder: quarto
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.0.0
 NeedsCompilation: yes
-Packaged: 2026-04-08 12:57:46 UTC; HUAWEI
+Packaged: 2026-06-16 07:03:00 UTC; HUAWEI
 Author: Guangchuang Yu [aut, cre]
 Repository: CRAN
-Date/Publication: 2026-04-08 19:30:09 UTC
+Date/Publication: 2026-06-16 07:30:02 UTC
