@@ -123,3 +123,139 @@ test_that("Multilevel GSEA works correctly with new parameters", {
                      nPermSimple = 500))
   expect_true(is.data.frame(res_simple))
 })
+
+test_that("Multilevel GSEA stays close to fgsea reference results", {
+  skip_if_not_installed("fgsea")
+
+  set.seed(1)
+  stats <- rnorm(2000)
+  names(stats) <- paste0("Gene", seq_along(stats))
+  stats <- sort(stats, decreasing = TRUE)
+
+  gene_sets <- list(
+    Top = c(names(stats)[1:20], names(stats)[sample(100:2000, 20)]),
+    Bottom = c(names(stats)[1981:2000], names(stats)[sample(1:1900, 20)]),
+    Mixed = sample(names(stats), 40)
+  )
+
+  enrichit_res <- suppressWarnings(
+    gsea(
+      geneList = stats,
+      gene_sets = gene_sets,
+      method = "multilevel",
+      eps = 0,
+      sampleSize = 101,
+      nPermSimple = 1000,
+      scoreType = "std"
+    )
+  )
+  fgsea_res <- suppressWarnings(
+    fgsea::fgseaMultilevel(
+      pathways = gene_sets,
+      stats = stats,
+      eps = 0,
+      sampleSize = 101,
+      nPermSimple = 1000,
+      scoreType = "std",
+      gseaParam = 1,
+      minSize = 10,
+      maxSize = 500
+    )
+  )
+  fgsea_res <- as.data.frame(fgsea_res)
+
+  cmp <- merge(
+    enrichit_res[, c("ID", "enrichmentScore", "NES", "pvalue")],
+    fgsea_res[, c("pathway", "ES", "NES", "pval")],
+    by.x = "ID",
+    by.y = "pathway",
+    sort = FALSE
+  )
+
+  expect_equal(cmp$enrichmentScore, cmp$ES, tolerance = 1e-6)
+  expect_equal(cmp$NES.x, cmp$NES.y, tolerance = 0.08)
+  expect_equal(log10(cmp$pvalue), log10(cmp$pval), tolerance = 1)
+})
+
+test_that("weighted GSEA accepts lightweight gene weights", {
+  set.seed(99)
+  stats <- sort(rnorm(200), decreasing = TRUE)
+  names(stats) <- paste0("Gene", seq_along(stats))
+  gene_sets <- list(
+    Top = names(stats)[1:20],
+    Mixed = names(stats)[c(10:19, 120:129)]
+  )
+  weight <- setNames(rep(1, length(stats)), names(stats))
+  weight[names(stats)[1:20]] <- 2
+
+  res <- gsea(
+    geneList = stats,
+    gene_sets = gene_sets,
+    weight = weight,
+    nPerm = 50,
+    method = "sample",
+    verbose = FALSE
+  )
+
+  expect_true(is.data.frame(res))
+  expect_true(all(c("ID", "enrichmentScore", "pvalue") %in% colnames(res)))
+  expect_true("Top" %in% res$ID)
+})
+
+test_that("gsea_gson sorts the input gene list and keeps pathway descriptions", {
+  skip_if_not_installed("gson")
+
+  gsid2gene <- data.frame(
+    gsid = c("Top", "Top", "Bottom", "Bottom"),
+    gene = c("Gene1", "Gene2", "Gene5", "Gene6"),
+    stringsAsFactors = FALSE
+  )
+  gsid2name <- data.frame(
+    gsid = c("Top", "Bottom"),
+    name = c("Top pathway", "Bottom pathway"),
+    stringsAsFactors = FALSE
+  )
+  gson_obj <- gson::gson(
+    gsid2gene = gsid2gene,
+    gsid2name = gsid2name,
+    species = "test",
+    gsname = "test",
+    version = "test",
+    accessed_date = as.character(Sys.Date()),
+    keytype = "SYMBOL"
+  )
+
+  stats <- c(Gene4 = 0.1, Gene1 = 3, Gene6 = -2, Gene2 = 2, Gene5 = -1)
+  weight <- c(Gene1 = 2, Gene2 = 2, Gene4 = 1, Gene5 = 1, Gene6 = 1)
+
+  res <- gsea_gson(
+    geneList = stats,
+    gson = gson_obj,
+    weight = weight,
+    pvalueCutoff = 1,
+    minGSSize = 1,
+    maxGSSize = 10,
+    method = "sample",
+    nPerm = 30,
+    verbose = FALSE
+  )
+
+  expect_s4_class(res, "gseaResult")
+  expect_equal(names(res@geneList), names(sort(stats, decreasing = TRUE)))
+  expect_equal(unname(res@geneList), unname(sort(stats, decreasing = TRUE)))
+  expect_equal(res@result$Description[match("Top", res@result$ID)], "Top pathway")
+  expect_true(all(c("p.adjust", "qvalue", "core_enrichment") %in% colnames(res@result)))
+})
+
+test_that("gseaScores returns signed enrichment scores and fortify output", {
+  geneList <- c(A = 4, B = 3, C = 1, D = -2, E = -4)
+
+  expect_gt(gseaScores(geneList, c("A", "B")), 0)
+  expect_lt(gseaScores(geneList, c("D", "E")), 0)
+  expect_equal(gseaScores(geneList, character(0)), 0)
+
+  running <- gseaScores(geneList, c("A", "B"), fortify = TRUE)
+  expect_true(is.data.frame(running))
+  expect_equal(nrow(running), length(geneList))
+  expect_true(all(c("x", "runningScore", "position") %in% colnames(running)))
+})

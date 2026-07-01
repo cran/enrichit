@@ -28,6 +28,92 @@ setMethod("show", signature(object="gseaResult"),
           }
 )
 
+#' show method for `nseaResult` instance
+#'
+#' @name show
+#' @aliases show,nseaResult-method
+#' @docType methods
+#' @rdname show-methods
+#'
+#' @title show method
+#' @param object A `nseaResult` instance.
+#' @return message
+#' @importFrom utils str
+#' @importFrom methods show
+#' @exportMethod show
+#' @usage show(object)
+#' @author Guangchuang Yu <https://yulab-smu.top>
+setMethod("show", signature(object="nseaResult"),
+          function (object){
+              params <- object@params
+              cat("#\n# Network-based Set Enrichment Analysis (NSEA)\n#\n")
+              .print_common_info(object)
+              
+              cat("#...@mode", "\t", object@mode, "\n")
+              cat(sprintf("#...@network\t%d nodes, %d edges\n", 
+                          nrow(object@network), sum(object@network > 0)))
+              cat(sprintf("#...@rwr\t%d iterations to converge (restart_prob = %s)\n", 
+                          object@iterations, object@restart_prob))
+              
+              cat("#...@geneList (input)", "\t")
+              str(object@geneList)
+              cat("#...@diffusion_scores", "\t")
+              str(object@diffusion_scores)
+              
+              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n", 
+                          params$pAdjustMethod, params$pvalueCutoff))
+              cat(sprintf("#...%d enriched terms found\n", nrow(object@result)))
+              str(object@result)
+              cat("#...Citation\n")
+              print_citation_msg(object@setType)
+          }
+)
+
+#' show method for `mnseaResult` instance
+#'
+#' @name show
+#' @aliases show,mnseaResult-method
+#' @docType methods
+#' @rdname show-methods
+#'
+#' @title show method
+#' @param object A `mnseaResult` instance.
+#' @return message
+#' @importFrom utils str
+#' @importFrom methods show
+#' @exportMethod show
+#' @usage show(object)
+#' @author Guangchuang Yu <https://yulab-smu.top>
+setMethod("show", signature(object="mnseaResult"),
+          function (object){
+              params <- object@params
+              cat("#\n# Multi-layer Network-based Set Enrichment Analysis (MNSEA)\n#\n")
+              .print_common_info(object)
+              
+              cat("#...@mode", "\t", object@mode, "\n")
+              cat("#...@collapse", "\t", object@collapse_method, "\n")
+              cat("#...@output_space", "\t", object@output_space, "\n")
+              if (nzchar(object@target_layer)) {
+                  cat("#...@target_layer", "\t", object@target_layer, "\n")
+              }
+              cat(sprintf("#...@layers\t%d layers, %d coupling edges\n",
+                          length(object@layer_scores), nrow(object@coupling_table)))
+              cat(sprintf("#...@rwr\t%d iterations to converge (restart_prob = %s)\n",
+                          object@iterations, object@restart_prob))
+              cat(sprintf("#...@explain\t%d pathway rows, %d feature rows cached\n",
+                          nrow(object@pathway_contribution), nrow(object@feature_contribution)))
+              
+              cat("#...@collapsed_scores", "\t")
+              str(object@collapsed_scores)
+              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n",
+                          params$pAdjustMethod, params$pvalueCutoff))
+              cat(sprintf("#...%d enriched terms found\n", nrow(object@result)))
+              str(object@result)
+              cat("#...Citation\n")
+              print_citation_msg(object@setType)
+          }
+)
+
 
 #' show method for `enrichResult` instance
 #'

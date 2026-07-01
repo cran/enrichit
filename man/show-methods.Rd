@@ -3,8 +3,14 @@
 \docType{methods}
 \name{show}
 \alias{show}
+\alias{show,nseaResult-method}
+\alias{show,mnseaResult-method}
 \title{show method}
 \usage{
+show(object)
+
+show(object)
+
 show(object)
 
 show(object)
@@ -16,9 +22,17 @@ show(object)
 message
 
 message
+
+message
+
+message
 }
 \description{
 show method for \code{gseaResult} instance
+
+show method for \code{nseaResult} instance
+
+show method for \code{mnseaResult} instance
 
 show method for \code{enrichResult} instance
 }

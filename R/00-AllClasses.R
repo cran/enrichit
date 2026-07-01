@@ -4,8 +4,7 @@
 #'
 #'
 #' @name compareClusterResult-class
-#' @aliases compareClusterResult-class show,compareClusterResult-method
-#'   summary,compareClusterResult-method plot,compareClusterResult-method
+#' @aliases compareClusterResult-class show,compareClusterResult-method summary,compareClusterResult-method plot,compareClusterResult-method
 #' @docType class
 #' @slot compareClusterResult cluster comparing result
 #' @slot geneClusters a list of genes
@@ -45,8 +44,7 @@ setClass("compareClusterResult",
 #'
 #'
 #' @name enrichResult-class
-#' @aliases enrichResult-class
-#'   show,enrichResult-method summary,enrichResult-method
+#' @aliases enrichResult-class show,enrichResult-method summary,enrichResult-method
 #'
 #' @docType class
 #' @slot result enrichment analysis
@@ -95,8 +93,7 @@ setClass("enrichResult",
 #'
 #'
 #' @name gseaResult-class
-#' @aliases gseahResult-class
-#'   show,gseaResult-method summary,gseaResult-method
+#' @aliases gseahResult-class show,gseaResult-method summary,gseaResult-method
 #'
 #' @docType class
 #' @slot result GSEA anaysis
@@ -130,4 +127,95 @@ setClass("gseaResult",
              dr              = "list"
          )
          )
+
+
+#' Class "nseaResult"
+#' This class represents the result of Network-based Set Enrichment Analysis (NSEA).
+#'
+#' @name nseaResult-class
+#' @aliases nseaResult-class
+#' @docType class
+#' @slot result enrichment analysis
+#' @slot organism organism label for the enrichment result
+#' @slot setType gene set collection type
+#' @slot geneSets gene sets
+#' @slot geneList order rank geneList
+#' @slot keytype ID type of gene
+#' @slot permScores permutation score matrix inherited from `gseaResult`
+#' @slot gene2Symbol gene ID to symbol mapping
+#' @slot readable logical flag of gene ID in symbol or not.
+#' @slot termsim Calculation matrix of termsim.
+#' @slot method Method of termsim.
+#' @slot params parameters
+#' @slot dr dimension reduction result
+#' @slot network sparse matrix or data.frame representing the underlying network.
+#' @slot diffusion_scores numeric vector of RWR diffusion scores for each node.
+#' @slot mode character, "evidence" or "signed", describing the RWR propagation mode.
+#' @slot iterations integer, the actual number of iterations RWR took to converge.
+#' @slot restart_prob numeric, the restart probability used in RWR.
+#' @exportClass nseaResult
+#' @author Guangchuang Yu \url{https://yulab-smu.top}
+setClass("nseaResult",
+         contains = "gseaResult",
+         representation = representation(
+             network = "ANY",
+             diffusion_scores = "numeric",
+             mode = "character",
+             iterations = "integer",
+             restart_prob = "numeric"
+         )
+)
+
+#' Class "mnseaResult"
+#' This class represents the result of multi-layer Network-based Set Enrichment Analysis.
+#'
+#' @name mnseaResult-class
+#' @aliases mnseaResult-class
+#' @docType class
+#' @slot result enrichment analysis
+#' @slot organism organism label for the enrichment result
+#' @slot setType gene set collection type
+#' @slot geneSets gene sets
+#' @slot geneList order rank geneList
+#' @slot keytype ID type of gene
+#' @slot permScores permutation score matrix inherited from `gseaResult`
+#' @slot gene2Symbol gene ID to symbol mapping
+#' @slot readable logical flag of gene ID in symbol or not.
+#' @slot termsim Calculation matrix of termsim.
+#' @slot method Method of termsim.
+#' @slot params parameters
+#' @slot dr dimension reduction result
+#' @slot multilayer_network prepared multi-layer network object.
+#' @slot layer_scores list of layer-specific diffusion score vectors.
+#' @slot collapsed_scores numeric vector used for downstream enrichment.
+#' @slot layer_weights numeric vector of layer weights.
+#' @slot coupling_table data.frame of inter-layer couplings.
+#' @slot mode character, "evidence" or "signed".
+#' @slot iterations integer, the actual number of iterations RWR took to converge.
+#' @slot restart_prob numeric, the restart probability used in RWR.
+#' @slot collapse_method character collapse method used on layer scores.
+#' @slot target_layer optional layer name used for downstream export.
+#' @slot output_space character output space of collapsed scores.
+#' @slot pathway_contribution pathway-by-layer contribution table precomputed for explanation.
+#' @slot feature_contribution feature-by-layer contribution table precomputed for explanation.
+#' @exportClass mnseaResult
+#' @author Guangchuang Yu \url{https://yulab-smu.top}
+setClass("mnseaResult",
+         contains = "gseaResult",
+         representation = representation(
+             multilayer_network = "ANY",
+             layer_scores = "list",
+             collapsed_scores = "numeric",
+             layer_weights = "numeric",
+             coupling_table = "data.frame",
+             mode = "character",
+             iterations = "integer",
+             restart_prob = "numeric",
+             collapse_method = "character",
+             target_layer = "character",
+             output_space = "character",
+             pathway_contribution = "data.frame",
+             feature_contribution = "data.frame"
+         )
+)
 

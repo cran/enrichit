@@ -1,3 +1,38 @@
+# enrichit 0.2.0
+
++ extend multi-omics integration with pathway-level and topology-level workflows (2026-06-24, Wed)
+    - add `aggregate_enrichment()` for multi-omics Late Fusion at the pathway level by aggregating multiple `enrichResult`/`gseaResult` objects
+    - support correlation-aware p-value aggregation with `method = "brown"` in `aggregate_omics()`
+    - support `method = "weighted_mean"` in `aggregate_omics()` for signed statistics with layer-specific weights
+    - add `mnsea()` and `mnsea_gson()` for multi-layer network-based enrichment
+    - add `prepare_multilayer_network()`, `propagate_multilayer()`, and `collapse_multilayer_scores()` for the multi-layer propagation pipeline
+    - add `mnseaResult` to store multi-layer diffusion results, collapsed scores, layer weights, and cached explanation tables
+    - precompute pathway-level and feature-level explanation caches inside `mnseaResult`
+    - add `get_mnsea_contribution()` and `extract_mnsea_subnetwork()` for explanation-ready data extraction
+    - provide the generic engine layer for downstream high-level wrappers such as `clusterProfiler::mnseGO()`, `mnseKEGG()`, `mnseMKEGG()`, and `mnseWP()`
++ add `aggregate_omics()`, `harmonize_ids()` and `select_features_for_ora()` to support Multi-omics Early Integration
+    - add `conflict_policy` parameter ("keep_all", "strict", "penalty") to handle directional conflicts in signed statistics (2026-06-23, Tue)
+    - support early fusion before `ora()`, `gsea()`, and `nsea()` through a decoupled aggregation layer
+    - these workflow helpers, together with `aggregate_enrichment()`, are designed to be reused by downstream packages for high-level multi-omics analysis
++ add `get_omics_contribution()` and `classify_omics_pattern()` for Multi-omics contribution tracing
++ implement Weighted Enrichment Analysis (2026-06-23, Tue)
+    - add `weight` parameter to `ora()`, `ora_gson()`, `gsea()`, and `gsea_gson()`
+    - support Weighted ORA using Wallenius' noncentral hypergeometric distribution via the `BiasedUrn` package
+    - support Weighted GSEA by fusing external weights with ranked statistics
++ implement Network-based Set Enrichment Analysis (NSEA) (2026-06-23, Tue)
+    - add `nsea()` and `nsea_gson()` for network-ranked GSEA based on Random Walk with Restart (RWR)
+    - add `mode = "signed"` support in `nsea()` and `nsea_gson()` for bidirectional network propagation using signed statistics
+    - add `prepare_network()` for parsing and normalizing edge lists or sparse matrices
+    - implement extremely fast RWR using `RcppEigen` sparse matrix multiplication
+    - introduce zero-dependency integration strategy for network propagation followed by multilevel GSEA
+    - provide the generic engine layer for downstream high-level wrappers such as `clusterProfiler::nseGO()`, `nseKEGG()`, `nseMKEGG()`, and `nseWP()`
++ align multilevel GSEA rank scaling with `fgsea::prepareStats()` to reduce result drift relative to the long-used fgsea backend (2026-06-22, Mon)
+    - replace the fixed `* 1e6` scaling in `prepare_gsea_inputs()` with fgsea-style total-weight normalization and integer rounding
+    - add a regression test that compares `gsea(method = "multilevel")` against `fgsea::fgseaMultilevel()` on the same ranked input
++ exclude zero-overlap gene sets from `ora_gson()` before multiple-testing correction (2026-06-22, Mon)
+    - keep `Count = 0` rows out of `p.adjust`/`qvalue` so ORA results match historical `DOSE`/`clusterProfiler` behavior
+    - resolves inflated adjustment in downstream `clusterProfiler::enricher()`, `enrichKEGG()`, and `compareCluster()` workflows (e.g. compound KEGG analyses, #821 & #819 of 'clusterProfiler')
+
 # enrichit 0.1.5
 
 + add Bayesian term selection for ORA results (2026-06-16, Tue)
