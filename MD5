@@ -1,13 +1,13 @@
-eee59c6c30a64f02094763c10af42250 *DESCRIPTION
+9f69de5fb8273d54dda856fe4ba628da *DESCRIPTION
 df7a980791243a3f0fee282a8b585b51 *NAMESPACE
-d82e17f4438d2e0c0828647e5deb19bf *NEWS.md
+9388ef950a28996a966a3effe108164c *NEWS.md
 d968ba7c10051baca76adb6d6bd51363 *R/00-AllClasses.R
 fbe74c071c3dbd12caba94b147888cba *R/AllGenerics.R
 1f1459274ddcc62642c2cf479055dc72 *R/RcppExports.R
 e3f2eb45f9cc82d4351c541560d71b35 *R/accessor.R
 d9df35c454876a40dda01454cf0bc3d1 *R/bayes_enrich.R
 1f7b4e1377524d8a8e0161cf4a1de515 *R/enrichit-package.R
-6bc8f4c87b83310b79e67d2d5adfe570 *R/gsea.R
+0300b73fdba5fb2f21621082ec7cbbba *R/gsea.R
 604f6318353e9bc704469b43ea1df9fd *R/gseaScores.R
 ba4c77a978a17459af8281c22c4abb73 *R/gsfilter.R
 d0772f742126bd6719b6236a0f7ac638 *R/mnsea.R
@@ -20,9 +20,9 @@ a5178990ba65abc30b7afc085e4a1ff4 *R/ora.R
 eafbc7a0ea93029513a0080f4239f1d4 *R/ora_gson.R
 38b45d09d24fe5010758cd13a9d1ad15 *R/print.R
 b7eccf17b69174f7c675ed653251bf97 *R/setReadable.R
-4b63d5f9f5effc25823829934a46f898 *R/utilities.R
+e0af2385772882e4c888cbe9350fb8f0 *R/utilities.R
 5618b31c21bdf2fc71f090f2b2b4a263 *README.md
-9d5d57306c989a862d29353812d857e7 *build/partial.rdb
+6af8e7644a2c366a25339b1923c9a048 *build/partial.rdb
 31aff434bb9ffc181ae21fa0ad2d1713 *man/EXTID2NAME.Rd
 4d9ac221fc627d01f07744b135d2d5fa *man/aggregate_enrichment.Rd
 aa1fd39b3605e7121f756e888ead319a *man/aggregate_omics.Rd
@@ -33,7 +33,7 @@ dad79b50fd9176189c029a52e6393e1e *man/bayes_summary.Rd
 8c0bc73fc16768c0a7abf081129793ef *man/compareClusterResult-class.Rd
 fe1263d4b031848a5640a9c42037dcc1 *man/enrichResult-class.Rd
 d2e8523f45aa834b2762f58c6b26318d *man/enrichit-package.Rd
-39fa152c071dd2e30f174b42e9d32adb *man/enrichit_params.Rd
+dc42827020955c83421977259850da26 *man/enrichit_params.Rd
 b8fab96c3e7941cd0e046c22fec1024a *man/extract_mnsea_subnetwork.Rd
 5755e37ef3bcf0c66cd04e85d899406a *man/geneID.Rd
 bbe0cbc7022cdea7f514a2b01abe0fe7 *man/geneInCategory.Rd

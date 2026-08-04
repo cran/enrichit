@@ -1,6 +1,6 @@
 Package: enrichit
 Title: 'C++' Implementations of Functional Enrichment Analysis
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: person(given = "Guangchuang", family = "Yu",
                email = "guangchuangyu@gmail.com", role  = c("aut", "cre"))
 Maintainer: Guangchuang Yu <guangchuangyu@gmail.com>
@@ -27,7 +27,7 @@ Encoding: UTF-8
 URL: https://yulab-smu.top/biomedical-knowledge-mining-book/
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: yes
-Packaged: 2026-07-01 01:13:15 UTC; HUAWEI
+Packaged: 2026-08-04 17:28:59 UTC; HUAWEI
 Author: Guangchuang Yu [aut, cre]
 Repository: CRAN
-Date/Publication: 2026-07-01 22:50:15 UTC
+Date/Publication: 2026-08-04 18:40:02 UTC
