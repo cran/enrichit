@@ -1,3 +1,32 @@
+# enrichit 0.2.6
+
+- fix permutation-based GSEA p-values in the fixed and adaptive engines
+  (`method = "sample"` / `"permute"`) for the default two-sided
+  (`scoreType = "std"`) calculation: the numerator counted only same-sign
+  permutations while the denominator divided by all permutations, so p-values
+  were too small under a symmetric null; the denominator now counts only
+  permutations on the same side of zero as the observed ES, following the
+  main fgsea convention
+  (2026-10-06, Tue, closes #3)
+- update the `RcppEigen` sparse-matrix interface in `rwr_eigen_cpp()`
+  from `MappedSparseMatrix` to `Map<SparseMatrix>` for Eigen 5
+  compatibility
+  (2026-10-06, Tue, PR #2)
+- add a `reportNA` argument to `gsea_gson()` so pathways with `NA`
+  multilevel p-values can be retained when needed
+  (2026-10-04, Sun, closes DOSE#88)
+- fix GSEA leading-edge edge cases by standardizing the `rank = 0L`
+  sentinel for zero-overlap, `N_R == 0`, and non-finite running-score
+  paths; align `as_gseaResult()` with the same contract; document the
+  `gsea_leading_edge_details()` return contract; and tighten converter
+  tests for the rank contract
+  (2026-10-04–2026-10-05, Sun–Mon, closes DOSE#46)
+- keep `qvalue` as `NA` when estimation fails instead of falling back
+  to `p.adjust`, document the `pvalue` / `p.adjust` / `qvalue`
+  semantics in `as_enrichResult()` and `as_gseaResult()`, and update
+  converter tests accordingly
+  (2026-10-05, Mon, addresses DOSE#24)
+
 # enrichit 0.2.5
 
 - ORA results now carry an **`oddsRatio`** column (Fisher's exact 2x2 odds ratio, placed next to `FoldEnrichment`). `FoldEnrichment` is a ratio of proportions, whereas the odds ratio is the effect size that the hypergeometric/Fisher test is built on; note it is the plain cross-product odds ratio and differs slightly from `fisher.test()$estimate`, which reports the conditional MLE (2026-09-22, Tue)
@@ -14,9 +43,9 @@
 # enrichit 0.2.3
 
 - calibrate NSEA significance testing by switching the default to a whole-pipeline permutation null instead of GSEA's label-permutation test (2026-08-23, Sun)
-  - the legacy `nsea()`/`nsea_gson()` pipeline ran GSEA's label-permutation test on the network-diffused scores; because network diffusion induces strong autocorrelation between neighbouring genes' scores, that test violates the exchangeability assumption of GSEA's permutation null and produces anti-conservative p-values (empirically \~2.5x the nominal false-positive rate)
+  - the legacy `nsea()`/`nsea_gson()` pipeline ran GSEA's label-permutation test on the network-diffused scores; because network diffusion induces strong autocorrelation between neighbouring genes' scores, that test violates the exchangeability assumption of GSEA's permutation null and produces anti-conservative p-values (empirically ~2.5x the nominal false-positive rate)
   - `significance = "whole_pipeline"` (new default) builds the null distribution of the enrichment score by re-running the *entire* pipeline under the null: permute gene labels -> re-diffuse over the network with RWR -> recompute the enrichment score; p-values and NES are then derived from this null, automatically accounting for the smoothing induced by diffusion
-  - `significance = "internal"` retains the legacy behaviour (GSEA's internal label-permutation test on the diffused scores), kept for comparison/debugging
+  - `significance = "internal"` keeps the earlier internal label-permutation formulation on the diffused scores
 - add `significance`, `nPerm`, `seed` and `exponent` arguments to `nsea()` and `nsea_gson()`; expose `pvalueCutoff` and `pAdjustMethod` in `nsea_gson()`
   - `nPerm` (default 1000) sets the number of whole-pipeline permutations; the smallest estimable p-value is `1/(nPerm + 1)`
   - `seed` (default NULL) makes the whole-pipeline null reproducible; set a numeric seed for deterministic results
@@ -174,4 +203,3 @@
 
 - `ora` function (2025-12-03, Wed)
   - Fast Over-Representation Analysis (ORA) using C\++ via Rcpp.
-

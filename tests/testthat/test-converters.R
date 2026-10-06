@@ -19,7 +19,17 @@ test_that("as_enrichResult builds enrichResult from canonical table", {
     expect_true(all(expected %in% colnames(x@result)))
     expect_equal(rownames(x@result), c("T1", "T2"))
     expect_false(anyNA(x@result$p.adjust))
-    expect_false(anyNA(x@result$qvalue))
+    ## qvalue is NA when qvalue::qvalue() cannot estimate pi_0 (e.g. only 2
+    ## p-values in this test case) — as_enrichResult is documented to keep
+    ## the failure as NA instead of silently falling back to p.adjust
+    ## (YuLab-SMU/DOSE#24).  Assert only that qvalue is a numeric column
+    ## and that any NA entries correspond exactly to qvalue-failure rows,
+    ## never to p.adjust.
+    expect_type(x@result$qvalue, "double")
+    ## In converter pipeline (calculate_qvalue applied to small test
+    ## pvector) failures are retained, not replaced:
+    stopifnot(identical(is.na(x@result$qvalue),
+                        is.na(enrichit:::calculate_qvalue(x@result$pvalue))))
     expect_equal(x@result$GeneRatio, c("5/100", "3/100"))
     expect_equal(x@gene, c("g1", "g2", "g3", "g4", "g5"))
     expect_equal(names(x@geneSets), c("T1", "T2"))
@@ -101,7 +111,12 @@ test_that("as_gseaResult fills rank/leading_edge/core_enrichment", {
 
     expect_s4_class(x, "gseaResult")
     expect_true(all(c("rank", "leading_edge", "core_enrichment", "setSize") %in% colnames(x@result)))
-    expect_true(all(x@result$rank > 0))
+    expect_type(x@result$rank, "integer")
+    expect_false(anyNA(x@result$rank))
+    expect_true(all(x@result$rank >= 0L))
+    ## rank == 0L is a documented sentinel: "no usable weighted in-set signal
+    ## for this pathway" (DOSE#46: N_R=0, empty gene-set overlap, non-finite
+    ## running score); rank is a positive integer otherwise.
     expect_true(all(nzchar(x@result$leading_edge)))
     expect_false(anyNA(x@result$qvalue))
     expect_equal(x@result$setSize, c(10, 11))

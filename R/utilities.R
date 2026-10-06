@@ -104,7 +104,65 @@ validate_gene_sets <- function(gene_sets) {
     return(gene_sets)
 }
 
+#' Compute leading-edge rank and meta for a single GSEA gene set.
+#'
+#' Re-runs the weighted running-enrichment-score accumulation used by
+#' \code{\link{gseaScores}} on a single gene set to locate the peak
+#' position and the core enrichment genes, matching the same semantics
+#' as the internal GSEA loop.  This helper is called from three places
+#' that cannot rely on the main GSEA output having already been
+#' prepared: \code{as_gseaResult()} (converter pipeline),
+#' \code{.build_nsea_result()} (NSEA result builder), and the
+#' multi-level result reconciler in \code{mnsea.R}.
+#'
+#' @param geneList named numeric vector of gene-level statistics,
+#'   assumed to be sorted in \strong{decreasing} order by the caller.
+#' @param geneSet character vector of gene identifiers in the set of
+#'   interest.
+#' @param exponent scalar weight exponent passed to
+#'   \code{gseaScores} (usually \code{1}).
+#' @param scoreType one of \code{"std"}, \code{"pos"}, or \code{"neg"};
+#'   controls which tail of the running score curve defines the peak.
+#'
+#' @return A list with three elements:
+#'   \describe{
+#'     \item{rank}{Integer index into the sorted \code{geneList} of the
+#'       peak running score, or \code{0L} as a documented sentinel when
+#'       no usable weighted in-set signal exists (i.e. the gene set has
+#'       zero overlap with \code{names(geneList)}, the weighted sum
+#'       \code{N_R} of in-set gene weights is zero, or the running
+#'       score vector contains any non-finite value).  \code{rank} is
+#'       always a finite integer; downstream code should not use
+#'       \code{NA_integer_} here because consumers commonly slice with
+#'       \code{seq_len(rank)} and compare with
+#'       \code{all(rank >= 0L)}.}
+#'     \item{leading_edge}{Human-readable \code{tags=X\%, list=Y\%,
+#'       signal=Z\%} summary string in the standard GSEA display
+#'       format.  Empty-signal sentinel cases use
+#'       \code{"tags=0\%, list=0\%, signal=0\%"}; the string is a
+#'       display label only and should not be parsed by downstream
+#'       packages (use \code{core_enrichment} instead).}
+#'     \item{core_enrichment}{\code{"/"}-joined string of the gene
+#'       symbols contributing to the peak (the "leading edge subset").
+#'       Empty string (\code{""}) for the zero-signal sentinel cases.}
+#'   }
+#'
+#' @note Early-exit short-circuits are deliberately ordered so that any
+#'   bad input or zero-signal pathway returns the documented
+#'   \code{rank = 0L} sentinel \emph{before} any call to
+#'   \code{which.max() / which.min()} can fabricate a spurious peak.
+#'
+#' @seealso \code{\link{gseaScores}} for the full accumulation;
+#'   \code{\link{as_gseaResult}} for the main converter consumer.
+#'
+#' @keywords internal
 gsea_leading_edge_details <- function(geneList, geneSet, exponent, scoreType) {
+    if (!is.numeric(geneList) || is.null(names(geneList))) {
+        stop("geneList must be a named numeric vector")
+    }
+    if (any(!is.finite(geneList))) {
+        stop("Not all stats values are finite numbers")
+    }
     genes <- names(geneList)
     N <- length(geneList)
     geneSet <- unique(intersect(as.character(geneSet), genes))
@@ -122,12 +180,20 @@ gsea_leading_edge_details <- function(geneList, geneSet, exponent, scoreType) {
     if (!isTRUE(all.equal(exponent, 1.0))) {
         weights <- weights^exponent
     }
-    N_R <- sum(weights[in_set])
+    N_R <- sum(weights[in_set], na.rm = TRUE)
     N_miss <- N - N_H
 
-    hit_inc <- if (N_R == 0) rep(0, N) else (weights * in_set) / N_R
+    if (N_R == 0) {
+        return(list(rank = 0L, leading_edge = "tags=0%, list=0%, signal=0%", core_enrichment = ""))
+    }
+
+    hit_inc <- (weights * in_set) / N_R
     miss_inc <- if (N_miss == 0) rep(0, N) else (!in_set) / N_miss
     running <- cumsum(hit_inc) - cumsum(miss_inc)
+
+    if (any(!is.finite(running))) {
+        return(list(rank = 0L, leading_edge = "tags=0%, list=0%, signal=0%", core_enrichment = ""))
+    }
 
     if (scoreType == "pos") {
         peak_idx <- which.max(running)
@@ -138,7 +204,8 @@ gsea_leading_edge_details <- function(geneList, geneSet, exponent, scoreType) {
     } else {
         max_es <- max(running)
         min_es <- min(running)
-        if (abs(max_es) >= abs(min_es)) {
+        stopifnot(is.finite(max_es), is.finite(min_es))
+        if (isTRUE(abs(max_es) >= abs(min_es))) {
             peak_idx <- which.max(running)
             es <- max_es
         } else {

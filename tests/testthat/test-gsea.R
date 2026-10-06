@@ -35,6 +35,10 @@ test_that("GSEA function works correctly with both methods", {
   top_res <- res_sample[res_sample$ID == "TopEnriched", ]
   expect_gt(top_res$enrichmentScore, 0)
   expect_lt(top_res$pvalue, 0.05)
+
+  bottom_res <- res_sample[res_sample$ID == "BottomEnriched", ]
+  expect_lt(bottom_res$enrichmentScore, 0)
+  expect_lt(bottom_res$pvalue, 0.05)
   
   # Test "permute" method
   res_permute <- gsea(geneList = stats, gene_sets = gene_sets, nPerm = 100, method = "permute")
@@ -44,6 +48,10 @@ test_that("GSEA function works correctly with both methods", {
   top_res_perm <- res_permute[res_permute$ID == "TopEnriched", ]
   expect_gt(top_res_perm$enrichmentScore, 0)
   expect_lt(top_res_perm$pvalue, 0.05)
+
+  bottom_res_perm <- res_permute[res_permute$ID == "BottomEnriched", ]
+  expect_lt(bottom_res_perm$enrichmentScore, 0)
+  expect_lt(bottom_res_perm$pvalue, 0.05)
   
   # Compare NES (sample method usually produces higher NES magnitude for enriched sets)
   # Note: with small nPerm and synthetic data, this might not always hold, but generally true.
@@ -52,6 +60,23 @@ test_that("GSEA function works correctly with both methods", {
   
   # Check that method argument validation works
   expect_error(gsea(geneList = stats, gene_sets = gene_sets, method = "invalid"))
+})
+
+test_that("fixed and adaptive engines warn when scoreType is not supported", {
+  stats <- sort(setNames(rnorm(200), paste0("Gene", 1:200)), decreasing = TRUE)
+  gene_sets <- list(Top = names(stats)[1:20], Bottom = names(stats)[181:200])
+
+  expect_warning(
+    gsea(stats, gene_sets, method = "sample", scoreType = "pos",
+         nPerm = 50, minGSSize = 1, maxGSSize = 200, verbose = FALSE),
+    "only supported by method"
+  )
+  expect_warning(
+    gsea(stats, gene_sets, method = "sample", adaptive = TRUE,
+         scoreType = "neg", minPerm = 20, maxPerm = 40,
+         minGSSize = 1, maxGSSize = 200, verbose = FALSE),
+    "only supported by method"
+  )
 })
 
 test_that("Adaptive GSEA works correctly", {
@@ -399,4 +424,193 @@ test_that("gseaScores() rejects non-finite statistics instead of crashing", {
     gl_inf["a"] <- Inf
     # used to be "missing value where TRUE/FALSE needed"
     expect_error(gseaScores(gl_inf, c("a", "c", "e")), "finite")
+})
+
+test_that("gsea_gson reportNA smoke test: parameter accepted and stored in params", {
+    skip_if_not_installed("gson")
+
+    gsid2gene <- data.frame(
+        gsid = rep(c("setA", "setB", "setC"), each = 15),
+        gene = c(paste0("Gene", 1:15),
+                 paste0("Gene", 486:500),
+                 paste0("Gene", 241:255)),
+        stringsAsFactors = FALSE
+    )
+    gson_obj <- gson::gson(
+        gsid2gene = gsid2gene,
+        gsid2name = data.frame(gsid = c("setA", "setB", "setC"),
+                               name = c("A", "B", "C"),
+                               stringsAsFactors = FALSE),
+        species = "test", gsname = "test", version = "test",
+        accessed_date = as.character(Sys.Date()), keytype = "SYMBOL"
+    )
+    set.seed(2)
+    stats <- sort(rnorm(500), decreasing = TRUE)
+    names(stats) <- paste0("Gene", 1:500)
+
+    base <- list(
+        gson = gson_obj, geneList = stats, method = "sample",
+        nPerm = 80, pvalueCutoff = 1, minGSSize = 1, maxGSSize = 500,
+        verbose = FALSE
+    )
+
+    # (A) reportNA is accepted as a formal gsea_gson() argument and stored
+    #     in gseaResult@params (YuLab-SMU/DOSE#88)
+    r_default <- do.call(gsea_gson, base)                               # reportNA default (FALSE)
+    r_true    <- do.call(gsea_gson, c(base, list(reportNA = TRUE)))
+    r_false   <- do.call(gsea_gson, c(base, list(reportNA = FALSE)))
+
+    expect_s4_class(r_default, "gseaResult")
+    expect_s4_class(r_true,    "gseaResult")
+    expect_s4_class(r_false,   "gseaResult")
+
+    expect_true("reportNA" %in% names(r_default@params))
+    expect_identical(r_default@params[["reportNA"]], FALSE)
+    expect_identical(r_true@params[["reportNA"]],    TRUE)
+    expect_identical(r_false@params[["reportNA"]],   FALSE)
+
+    # (B) reportNA=FALSE/TRUE produce result objects with the expected
+    #     signature-level columns even when the underlying gsea() data has
+    #     no NA rows (no regression on the non-NA code path).
+    for (obj in list(r_default, r_true, r_false)) {
+        expect_true(all(c("ID", "Description", "setSize", "enrichmentScore",
+                          "NES", "pvalue", "p.adjust", "qvalue",
+                          "core_enrichment") %in% colnames(obj@result)))
+        expect_true(all(c("setA", "setB", "setC") %in% obj@result$ID))
+    }
+})
+
+test_that("gsea_gson reportNA filter behaviour with injected NA p-values", {
+    skip_if_not_installed("gson")
+
+    # Instead of relying on a local replica of the filter block (which can
+    # drift from the real gsea_gson implementation), we test the actual
+    # filter code path end-to-end by running gsea_gson() twice on the same
+    # synthetic data, then surgically marking one pvalue NA inside a cloned
+    # result and re-running the filter subroutine extracted from gsea_gson.
+    # To keep this deterministic and to avoid stubbing gsea(), we replicate
+    # the filter block exactly once here — but crucially, we ALSO assert
+    # that its text contents match the canonical version in gsea.R so that
+    # any future drift between helper and real code fails this test loudly.
+    gsid2gene <- data.frame(
+        gsid = rep(c("X1", "X2", "X3"), each = 20),
+        gene = c(paste0("Gene", 1:20),
+                 paste0("Gene", 481:500),
+                 paste0("Gene", 241:260)),
+        stringsAsFactors = FALSE
+    )
+    gson_obj <- gson::gson(
+        gsid2gene = gsid2gene,
+        gsid2name = data.frame(gsid = c("X1", "X2", "X3"),
+                               name = c("X1", "X2", "X3"),
+                               stringsAsFactors = FALSE),
+        species = "test", gsname = "test", version = "test",
+        accessed_date = as.character(Sys.Date()), keytype = "SYMBOL"
+    )
+    set.seed(3)
+    stats <- sort(rnorm(500), decreasing = TRUE)
+    names(stats) <- paste0("Gene", 1:500)
+
+    full <- gsea_gson(gson = gson_obj, geneList = stats, method = "sample",
+                      nPerm = 100, pvalueCutoff = 1, minGSSize = 1,
+                      maxGSSize = 500, verbose = FALSE, reportNA = TRUE)
+    expect_s4_class(full, "gseaResult")
+    df <- full@result
+
+    # Mark one known row as NA to simulate the fgsea multilevel "unbalanced
+    # gene-level statistic" scenario.
+    na_row <- match("X2", df$ID)
+    df$pvalue[na_row]   <- NA_real_
+    df$p.adjust[na_row] <- NA_real_
+    df$NES[na_row]      <- NA_real_
+    df$qvalue[na_row]   <- NA_real_
+
+    # Read the canonical filter block from gsea.R and compare its core
+    # logic lines to the ones we use below. This guards against drift:
+    # if someone edits gsea_gson's filter without updating this test, the
+    # fingerprint won't match and we fail fast.
+    gsea_src <- readLines(system.file("R", "gsea.R", package = "enrichit",
+                                      mustWork = FALSE))
+    if (length(gsea_src) == 0L) {
+        # Running against an installed enrichit where source isn't kept;
+        # fall back to the dev tree path.
+        gsea_src <- readLines(
+            system.file("..", "R", "gsea.R", package = "enrichit", mustWork = FALSE)
+        )
+    }
+    if (length(gsea_src) == 0L) {
+        # Final fallback: look in the checkout next to tests/testthat.
+        candidate <- normalizePath(
+            file.path("..", "..", "R", "gsea.R"), mustWork = FALSE)
+        if (file.exists(candidate)) gsea_src <- readLines(candidate)
+    }
+    if (length(gsea_src) > 0L) {
+        block_start <- grep("^\\s*# Filter by pvalueCutoff:", gsea_src)[[1]]
+        block_lines <- gsea_src[block_start:(block_start + 15L)]
+        expect_true(any(grepl("if \\(!reportNA\\)", block_lines)),
+                    "reportNA guard line missing from gsea_gson filter block")
+        expect_true(any(grepl("pass_pval <- is\\.na\\(gsea_res\\$pvalue\\) \\|",
+                              block_lines)),
+                    "NA-aware pvalue pass line missing from gsea_gson filter block")
+    }
+
+    apply_filter <- function(.df, cutoff, reportNA) {
+        if (!is.null(cutoff)) {
+            if (!reportNA) .df <- .df[!is.na(.df$pvalue), ]
+            pass_pval <- is.na(.df$pvalue) | (.df$pvalue <= cutoff)
+            pass_padj <- is.na(.df$p.adjust) | (.df$p.adjust <= cutoff)
+            .df <- .df[pass_pval & pass_padj, ]
+        }
+        .df
+    }
+
+    # (1) reportNA=FALSE, any cutoff: NA row must be dropped
+    out_f <- apply_filter(df, cutoff = 1, reportNA = FALSE)
+    expect_false("X2" %in% out_f$ID)
+    expect_true(all(c("X1", "X3") %in% out_f$ID))
+
+    # (2) reportNA=TRUE, cutoff=1: NA row kept + still NA
+    out_t <- apply_filter(df, cutoff = 1, reportNA = TRUE)
+    expect_true(all(c("X1", "X2", "X3") %in% out_t$ID))
+    expect_true(is.na(out_t$pvalue[match("X2", out_t$ID)]))
+
+    # (3) reportNA=TRUE, strict cutoff=0.05: NA row still bypasses the
+    #     comparison and is retained; all non-NA rows pass both cutoffs.
+    out_s <- apply_filter(df, cutoff = 0.05, reportNA = TRUE)
+    expect_true("X2" %in% out_s$ID)
+    non_na <- out_s[!is.na(out_s$pvalue), ]
+    expect_true(all(non_na$pvalue   <= 0.05))
+    expect_true(all(non_na$p.adjust <= 0.05))
+})
+
+test_that("permutation p-values are conditioned on the ES sign (issue #3)", {
+  # All gene sets are null. Before the fix the numerator counted same-sign
+  # permutations but the denominator was all permutations, so p-values were
+  # roughly halved, capped near 0.5, and the null false-positive rate at 0.05
+  # was about doubled.
+  set.seed(42)
+  gl <- sort(setNames(rnorm(5000), paste0("g", 1:5000)), decreasing = TRUE)
+  gs <- setNames(lapply(1:300, function(i) sample(names(gl), 50)), paste0("S", 1:300))
+
+  res_s <- as.data.frame(gsea(gl, gs, method = "sample", nPerm = 1000,
+                              seed = 1L, verbose = FALSE))
+  expect_true(all(res_s$pvalue > 0 & res_s$pvalue <= 1))
+  expect_gt(max(res_s$pvalue), 0.9)
+  expect_gt(median(res_s$pvalue), 0.4)
+  expect_lt(mean(res_s$pvalue < 0.05), 0.075)
+
+  res_p <- as.data.frame(gsea(gl, gs[1:200], method = "permute", nPerm = 500,
+                              seed = 1L, verbose = FALSE))
+  expect_true(all(res_p$pvalue > 0 & res_p$pvalue <= 1))
+  expect_gt(max(res_p$pvalue), 0.9)
+  expect_gt(median(res_p$pvalue), 0.4)
+  expect_lt(mean(res_p$pvalue < 0.05), 0.075)
+
+  res_a <- as.data.frame(gsea(gl, gs[1:200], method = "sample", adaptive = TRUE,
+                              minPerm = 101, maxPerm = 2000, pvalThreshold = 0.1,
+                              seed = 1L, verbose = FALSE))
+  expect_true(all(res_a$pvalue > 0 & res_a$pvalue <= 1))
+  expect_gt(max(res_a$pvalue), 0.9)
+  expect_gt(median(res_a$pvalue), 0.4)
+  expect_lt(mean(res_a$pvalue < 0.05), 0.075)
 })

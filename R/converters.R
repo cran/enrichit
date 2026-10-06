@@ -3,39 +3,62 @@
 ## fgsea, ...).  Importers for specific tools live in 'enrichplot' and
 ## call these constructors.
 
-##' Convert a result table to an \code{enrichResult} object
-##'
-##' Generic constructor for over-representation analysis results produced
-##' by other tools.  The input must follow the canonical column schema
-##' documented in \code{enrichplot::fortify()}; a minimal set of columns
-##' (\code{ID}, \code{pvalue} and at least one of \code{geneID},
-##' \code{Count} or \code{GeneRatio}) is required, the remaining canonical
-##' columns are derived when possible.
-##' @title as_enrichResult
-##' @param x result table (data.frame) with the canonical ORA columns, or
-##' a table with common aliases (e.g. \code{PValue}, \code{term_id});
-##' tool-specific naming should be mapped to the canonical schema by the
-##' per-tool importers in 'enrichplot'
-##' @param ... additional arguments passed to methods
-##' @return An \code{enrichResult} object
-##' @export
+#' Convert a result table to an \code{enrichResult} object
+#'
+#' Generic constructor for over-representation analysis results produced
+#' by other tools.  The input must follow the canonical column schema
+#' documented in \code{enrichplot::fortify()}; a minimal set of columns
+#' (\code{ID}, \code{pvalue} and at least one of \code{geneID},
+#' \code{Count} or \code{GeneRatio}) is required, the remaining canonical
+#' columns are derived when possible.
+#' @title as_enrichResult
+#' @param x result table (data.frame) with the canonical ORA columns, or
+#' a table with common aliases (e.g. \code{PValue}, \code{term_id});
+#' tool-specific naming should be mapped to the canonical schema by the
+#' per-tool importers in 'enrichplot'
+#' @param ... additional arguments passed to methods
+#' @return An \code{enrichResult} object.  The significance columns are
+#'   always laid out in the same three-column convention:
+#'   \describe{
+#'     \item{\code{pvalue}}{Raw nominal p-value (no multiplicity
+#'       correction) supplied by the source analysis. For native
+#'       \pkg{enrichit} ORA this is typically Fisher's exact; for
+#'       imported external results it reflects the method used by the
+#'       source tool.}
+#'     \item{\code{p.adjust}}{\code{stats::p.adjust(pvalue, method =
+#'       pAdjustMethod)}; default \code{"BH"} for Benjamini & Hochberg
+#'       (1995) step-up false discovery rate control. Because no
+#'       \eqn{\pi_0} is estimated, BH-adjusted p-values are typically
+#'       \strong{>=} the Storey q-values on the same data.}
+#'     \item{\code{qvalue}}{Storey & Tibshirani (2003) positive FDR
+#'       estimate computed through the \pkg{qvalue} package.
+#'       \eqn{\pi_0} (the proportion of tests drawn from the null) is
+#'       estimated from the empirical p-value distribution, so
+#'       q-values are typically smaller than BH-\code{p.adjust} under a
+#'       non-null majority. If estimation fails (e.g. \code{qvalue} is
+#'       not installed, \eqn{\pi_0} estimation fails, or too few
+#'       p-values are provided), \code{qvalue} is left as \code{NA}.
+#'       Use \code{p.adjust} when you need a complete significance
+#'       column for downstream work.}
+#'   }
+#' @export
 as_enrichResult <- function(x, ...) {
     UseMethod("as_enrichResult")
 }
 
-##' @rdname as_enrichResult
-##' @param geneSets gene sets as a named list, a two-column
-##' data.frame (term, gene), or a \code{GSON} object. If \code{NULL}, gene
-##' sets are rebuilt from the \code{geneID} column (overlap genes only,
-##' sufficient for \code{cnetplot()}/\code{heatplot()}).
-##' @param gene query gene vector used in the analysis. If \code{NULL},
-##' inferred as the union of \code{geneID} entries.
-##' @param universe background gene vector. If \code{NULL}, inferred as the
-##' union of \code{geneSets} when available.
-##' @param ontology,organism,keytype metadata stored in the object slots.
-##' @param pAdjustMethod method passed to \code{stats::p.adjust} when
-##' \code{p.adjust} is missing.
-##' @export
+#' @rdname as_enrichResult
+#' @param geneSets gene sets as a named list, a two-column
+#' data.frame (term, gene), or a \code{GSON} object. If \code{NULL}, gene
+#' sets are rebuilt from the \code{geneID} column (overlap genes only,
+#' sufficient for \code{cnetplot()}/\code{heatplot()}).
+#' @param gene query gene vector used in the analysis. If \code{NULL},
+#' inferred as the union of \code{geneID} entries.
+#' @param universe background gene vector. If \code{NULL}, inferred as the
+#' union of \code{geneSets} when available.
+#' @param ontology,organism,keytype metadata stored in the object slots.
+#' @param pAdjustMethod method passed to \code{stats::p.adjust} when
+#' \code{p.adjust} is missing.
+#' @export
 as_enrichResult.default <- function(
     x,
     geneSets = NULL,
@@ -191,38 +214,56 @@ as_enrichResult.default <- function(
     )
 }
 
-##' Convert a result table to a \code{gseaResult} object
-##'
-##' Generic constructor for pre-ranked GSEA results produced by other tools
-##' (e.g. 'fgsea', Broad GSEA reports).  The ranked gene statistics must be
-##' supplied separately as \code{geneList}; the result table alone cannot be
-##' converted because most GSEA visualizations consume the ranked list.
-##' @title as_gseaResult
-##' @param x result table (data.frame) with GSEA columns
-##' (\code{ID}, \code{enrichmentScore}, \code{pvalue}; commonly also
-##' \code{NES}, \code{p.adjust}, \code{setSize}, \code{core_enrichment};
-##' fgsea-style \code{pathway}/\code{ES}/\code{pval}/\code{padj}/\code{size}
-##' are recognized)
-##' @param ... additional arguments passed to methods
-##' @return A \code{gseaResult} object
-##' @export
+#' Convert a result table to a \code{gseaResult} object
+#'
+#' Generic constructor for pre-ranked GSEA results produced by other tools
+#' (e.g. 'fgsea' or GSEA reports).  The ranked gene statistics must be
+#' supplied separately as \code{geneList}; the result table alone cannot be
+#' converted because most GSEA visualizations consume the ranked list.
+#' @title as_gseaResult
+#' @param x result table (data.frame) with GSEA columns
+#' (\code{ID}, \code{enrichmentScore}, \code{pvalue}; commonly also
+#' \code{NES}, \code{p.adjust}, \code{setSize}, \code{core_enrichment};
+#' fgsea-style \code{pathway}/\code{ES}/\code{pval}/\code{padj}/\code{size}
+#' are recognized)
+#' @param ... additional arguments passed to methods
+#' @return A \code{gseaResult} object.  The \code{result} slot carries
+#'   the same three-column significance layout documented in the
+#'   \code{as_enrichResult} \code{@return} section:
+#'   \describe{
+#'     \item{\code{pvalue}}{Raw nominal p-value from the chosen GSEA
+#'       permutation or multilevel null.}
+#'     \item{\code{p.adjust}}{\code{stats::p.adjust(pvalue, method =
+#'       pAdjustMethod)} (default \code{"BH"}). BH-adjusted p-values
+#'       are typically \strong{>=} the Storey q-value on the same
+#'       data.}
+#'     \item{\code{qvalue}}{Storey & Tibshirani (2003) pFDR estimate
+#'       computed through the \pkg{qvalue} package. \eqn{\pi_0} is
+#'       estimated from the empirical p-value distribution, so
+#'       q-values are typically smaller than BH-\code{p.adjust} under a
+#'       non-null majority. If estimation fails, \code{qvalue} is left
+#'       as \code{NA}; use \code{p.adjust} when you need a complete
+#'       significance column.}
+#'   }
+#'   See the \code{as_enrichResult} man page for the full explanation.
+#' @export
 as_gseaResult <- function(x, ...) {
     UseMethod("as_gseaResult")
 }
 
-##' @rdname as_gseaResult
-##' @param geneList named numeric vector of ranked statistics, sorted in
-##' descending order (sorted automatically with a warning if not).
-##' @param geneSets gene sets as a named list, a two-column data.frame
-##' (term, gene), or a \code{GSON} object. If \code{NULL}, gene sets are
-##' rebuilt from \code{core_enrichment} (leading edge genes only) and
-##' running-score plots will only be approximate.
-##' @param setType,organism,keytype metadata stored in the object slots.
-##' @param exponent,scoreType parameters used to recompute missing
-##' \code{rank}/\code{leading_edge}/\code{core_enrichment} columns.
-##' @param pAdjustMethod method passed to \code{stats::p.adjust} when
-##' \code{p.adjust} is missing.
-##' @export
+#' @rdname as_gseaResult
+#' @param geneList named numeric vector of ranked statistics, sorted in
+#' descending order (sorted automatically with a warning if not).
+#' @param geneSets gene sets as a named list, a two-column data.frame
+#' (term, gene), or a \code{GSON} object. If \code{NULL}, gene sets are
+#' rebuilt from \code{core_enrichment} (leading edge genes only) and
+#' running-score plots will only be approximate.
+#' @param setType,organism,keytype metadata stored in the object slots.
+#' @param exponent,scoreType parameters used to recompute missing
+#' \code{rank}/\code{leading_edge}/\code{core_enrichment} columns.
+#' @param pAdjustMethod method passed to \code{stats::p.adjust} when
+#' \code{p.adjust} is missing.
+#' @export
 as_gseaResult.default <- function(
     x,
     geneList,
@@ -289,12 +330,18 @@ as_gseaResult.default <- function(
         is.null(df$core_enrichment)
     if (missing_details) {
         details <- lapply(seq_len(nrow(df)), function(i) {
-            gsea_leading_edge_details(
-                geneList,
-                geneSets[[df$ID[i]]],
-                exponent = exponent,
-                scoreType = scoreType
-            )
+            gs <- geneSets[[df$ID[i]]]
+            if (!any(gs %in% names(geneList))) {
+                list(rank = 0L, leading_edge = "tags=0%, list=0%, signal=0%",
+                     core_enrichment = "")
+            } else {
+                gsea_leading_edge_details(
+                    geneList,
+                    gs,
+                    exponent = exponent,
+                    scoreType = scoreType
+                )
+            }
         })
         if (is.null(df$rank)) {
             df$rank <- vapply(details, `[[`, integer(1), "rank")
@@ -444,10 +491,7 @@ as_gseaResult.default <- function(
     }
 
     if (is.null(df$qvalue)) {
-        q <- calculate_qvalue(df$pvalue)
-        ## keep the column non-empty when qvalue estimation fails
-        q[is.na(q)] <- df$p.adjust[is.na(q)]
-        df$qvalue <- q
+        df$qvalue <- calculate_qvalue(df$pvalue)
     } else {
         df$qvalue <- suppressWarnings(as.numeric(df$qvalue))
     }

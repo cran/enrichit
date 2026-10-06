@@ -19,7 +19,7 @@ setMethod("show", signature(object="gseaResult"),
               cat("#...@geneList", "\t")
               str(object@geneList)
               cat("#...nPerm", "\t", params$nPerm, "\n")
-              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n", 
+              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n",
                           params$pAdjustMethod, params$pvalueCutoff))
               cat(sprintf("#...%d enriched terms found\n", nrow(object@result)))
               str(object@result)
@@ -60,7 +60,7 @@ setMethod("show", signature(object="nseaResult"),
               cat("#...@diffusion_scores", "\t")
               str(object@diffusion_scores)
               
-              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n", 
+              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n",
                           params$pAdjustMethod, params$pvalueCutoff))
               cat(sprintf("#...%d enriched terms found\n", nrow(object@result)))
               str(object@result)
@@ -137,9 +137,9 @@ setMethod("show", signature(object="enrichResult"),
               
               cat("#...@gene", "\t")
               str(object@gene)
-              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n", 
+              cat(sprintf("#...pvalues adjusted by '%s' with cutoff < %s\n",
                           object@pAdjustMethod, object@pvalueCutoff))
-              
+
               object <- get_enriched(object)
               n <- nrow(object@result)
               cat(sprintf("#...%d enriched terms found\n", n))

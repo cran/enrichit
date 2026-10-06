@@ -14,12 +14,21 @@
 #'   when \code{seed = FALSE}) makes the result reproducible.
 #' @param nPermSimple Number of permutations for the simple method (default: 1000).
 #' @param scoreType Type of enrichment score calculation: "std", "pos", "neg" (default: "std").
+#'   Only honoured by \code{method = "multilevel"}; fixed and adaptive
+#'   permutation paths currently use the standard two-sided score.
 #'
 #' @return A data.frame with columns:
 #' - **ID**: Gene set name
 #' - **enrichmentScore**: Enrichment Score
 #' - **NES**: Normalized Enrichment Score
-#' - **pvalue**: Empirical p-value from permutation test
+#' - **pvalue**: Empirical p-value from the permutation test. With the default
+#'   two-sided \code{scoreType = "std"}, the denominator counts only
+#'   permutations on the same side of zero as the observed ES (fgsea
+#'   convention). The \code{"pos"}/\code{"neg"} score types are supported by
+#'   the multilevel engine; fixed and adaptive permutation paths currently use
+#'   the two-sided ES calculation. For fixed or adaptive permutation runs,
+#'   the smallest estimable p-value is determined by the number of same-side
+#'   null permutations, not by the total number of permutations.
 #' - **setSize**: Size of the gene set (number of genes found in geneList)
 #' - **nPerm**: (adaptive mode only) Actual number of permutations used
 #' - **rank**: Rank at which the maximum enrichment score is attained
@@ -94,6 +103,12 @@ gsea <- function(geneList, gene_sets,
     
     method <- match.arg(method, c("sample", "permute", "multilevel"))
     scoreType <- match.arg(scoreType, c("std", "pos", "neg"))
+    if (scoreType != "std" && method != "multilevel") {
+        warning(
+            "scoreType = \"", scoreType, "\" is only supported by method = \"multilevel\"; ",
+            "method = \"", method, "\" uses the standard two-sided ES calculation."
+        )
+    }
 
     prepared <- prepare_gsea_inputs(geneList, scoreType, exponent)
     geneList <- prepared$geneList
@@ -281,8 +296,19 @@ scale_fgsea_ranks <- function(geneList, exponent) {
 #' @param pvalueCutoff P-value cutoff applied to both the raw p-value and the
 #'   adjusted p-value (\code{p.adjust}), consistent with the historical
 #'   clusterProfiler/DOSE behavior (default: 0.05).
+#' @param reportNA If \code{TRUE}, pathways with \code{NA} p-values (produced
+#'   by the multilevel method when gene-level statistics are unbalanced) are
+#'   retained in the result. Useful with \code{pvalueCutoff = 1} to inspect
+#'   the complete set of tested pathways. Default: \code{FALSE}, which
+#'   excludes \code{NA} rows from the reported result.
 #' @param ... Additional parameters passed to gsea()
-#' @return gseaResult object
+#' @return A `gseaResult` object. The `result` slot carries the three
+#'   significance columns `pvalue`, `p.adjust`, and `qvalue`:
+#'   raw nominal p-values, BH-style multiple-testing adjusted p-values
+#'   (via `stats::p.adjust()`; default `pAdjustMethod = "BH"`), and
+#'   Storey q-values (via `qvalue::qvalue()`). If q-value estimation
+#'   fails, `qvalue` remains `NA`. See `?as_gseaResult` for the full
+#'   column semantics.
 #' @author Guangchuang Yu
 #' @export
 gsea_gson <- function(geneList,
@@ -301,6 +327,7 @@ gsea_gson <- function(geneList,
                  pvalThreshold = 0.1,
                  seed = FALSE,
                  verbose = TRUE,
+                 reportNA = FALSE,
                  ...) {
 
     if (!inherits(gson, "GSON")) {
@@ -375,10 +402,18 @@ gsea_gson <- function(geneList,
     # must pass the cutoff, matching the historical DOSE/clusterProfiler
     # behavior (see DOSE::GSEA_fgsea: res[res$pvalue <= pvalueCutoff, ] followed
     # by res[res$p.adjust <= pvalueCutoff, ]).
+    #
+    # When reportNA = TRUE, rows with NA p-value (e.g. multilevel method under
+    # unbalanced gene-level statistics) are kept and automatically bypass the
+    # cutoff comparison, so pvalueCutoff = 1 together with reportNA = TRUE
+    # returns every gene set that passed size filtering. (YuLab-SMU/DOSE#88)
     if (!is.null(pvalueCutoff)) {
-        gsea_res <- gsea_res[!is.na(gsea_res$pvalue), ]
-        gsea_res <- gsea_res[gsea_res$pvalue <= pvalueCutoff, ]
-        gsea_res <- gsea_res[gsea_res$p.adjust <= pvalueCutoff, ]
+        if (!reportNA) {
+            gsea_res <- gsea_res[!is.na(gsea_res$pvalue), ]
+        }
+        pass_pval <- is.na(gsea_res$pvalue) | (gsea_res$pvalue <= pvalueCutoff)
+        pass_padj <- is.na(gsea_res$p.adjust) | (gsea_res$p.adjust <= pvalueCutoff)
+        gsea_res <- gsea_res[pass_pval & pass_padj, ]
     }
     
     if (nrow(gsea_res) == 0) {
@@ -430,7 +465,8 @@ gsea_gson <- function(geneList,
                    pAdjustMethod = pAdjustMethod,
                    exponent = exponent,
                    minGSSize = minGSSize,
-                   maxGSSize = maxGSSize)
+                   maxGSSize = maxGSSize,
+                   reportNA = reportNA)
                    
     res <- new("gseaResult",
                result = gsea_res,
@@ -447,5 +483,3 @@ gsea_gson <- function(geneList,
               
     return(res)
 }
-
-
