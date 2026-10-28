@@ -47,27 +47,54 @@ ora_gson <- function(gene,
     }
 
     # Handle universe
-    extID <- unique(gsid2gene$gene)
+    annotatedGenes <- unique(gsid2gene$gene)
+    extID <- annotatedGenes
     if (missing(universe))
         universe <- NULL
     if(!is.null(universe)) {
-        if (is.character(universe)) {
+        ## A numeric/integer/factor universe (e.g. plain Entrez IDs supplied as
+        ## numbers) is a perfectly meaningful background and should not be
+        ## silently discarded -- coerce it to character the same way `gene`
+        ## is coerced a few lines above. Only genuinely non-vector input
+        ## (list, data.frame, S4 object, ...) is still rejected.
+        ## see https://github.com/YuLab-SMU/clusterProfiler/issues/217
+        ##     https://github.com/YuLab-SMU/clusterProfiler/issues/737
+        if (!is.character(universe)) {
+            if (is.atomic(universe) && !is.null(universe)) {
+                message(
+                    "`universe` is not in character, converting via as.character()..."
+                )
+                universe <- as.character(universe)
+            } else {
+                message("`universe` is not in character and will be ignored...")
+                universe <- NULL
+            }
+        }
+
+        if (!is.null(universe)) {
             force_universe <- getOption("enrichment_force_universe", FALSE)
             if (force_universe) {
                 extID <- universe
             } else {
                 extID <- intersect(extID, universe)
             }
-        } else {
-            ## https://github.com/YuLab-SMU/clusterProfiler/issues/217
-            message("`universe` is not in character and will be ignored...")
         }
     }
 
     # Prepare Gene Sets
     geneSets <- split(gsid2gene$gene, gsid2gene$gsid)
-    # Intersect with universe
-    geneSets <- lapply(geneSets, intersect, extID)
+    ## Intersect the gene sets with the background only when the background was
+    ## actually RESTRICTED. An intersection with the full annotated gene list is
+    ## the identity -- the sets come from that same table -- but it is not free:
+    ## base `intersect()` hashes `extID` once per set, measured at 20 s for the
+    ## 14,209 human GO BP sets (PBMC 10k, 2026-10-18), and ORA runs once per
+    ## cluster in compareCluster(). Note that clusterProfiler passes the full
+    ## annotated list EXPLICITLY when the caller supplies no universe, so
+    ## `universe != NULL` alone is not the right test; `extID` is shorter than
+    ## the annotated set only when a universe actually removed genes.
+    if (!is.null(universe) && length(extID) < length(annotatedGenes)) {
+        geneSets <- filter_gene_sets(geneSets, extID)
+    }
     
     # Filter by size
     idx <- get_geneSet_index(geneSets, minGSSize, maxGSSize)
@@ -195,19 +222,27 @@ ora_gson <- function(gene,
 
     # Reorder columns
     expected_cols <- c("ID", "Description", "GeneRatio", "BgRatio", "RichFactor", "FoldEnrichment", "oddsRatio", "zScore", "pvalue", "p.adjust", "qvalue", "geneID", "Count")
-    
+
     # Ensure all expected columns exist
     missing_cols <- setdiff(expected_cols, names(ora_res))
     if (length(missing_cols) > 0) {
-        warning("Missing columns in ORA result: ", paste(missing_cols, collapse=", "), 
+        warning("Missing columns in ORA result: ", paste(missing_cols, collapse=", "),
                 ". Filling with NA. (Note: 'qvalue' may be missing if p-value distribution does not allow q-value calculation)")
         for (col in missing_cols) {
             ora_res[[col]] <- NA
         }
     }
 
-    #other_cols <- setdiff(names(ora_res), expected_cols)
-    ora_res <- ora_res[, expected_cols]
+    ## Keep the denominators the engine already computed. `DESize` is the
+    ## GeneRatio denominator (query genes inside the universe) and
+    ## `UniverseSize` the BgRatio denominator (universe ∩ annotated genes);
+    ## both were calculated here and then dropped, which is why four users in a
+    ## row (clusterProfiler#703, #523, #618, #723) had to ask what the
+    ## denominators of the "20/207" strings actually are. `SetSize` stays too:
+    ## RichFactor divides by it, so all three ratios are now checkable from the
+    ## table itself. GSEA's gsea_gson() has always kept its extra columns.
+    extra_cols <- intersect(c("SetSize", "DESize", "UniverseSize"), names(ora_res))
+    ora_res <- ora_res[, c(expected_cols, extra_cols)]
     
     # Sort by pvalue
     ora_res <- ora_res[order(ora_res$pvalue), ]

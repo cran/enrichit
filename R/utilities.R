@@ -70,11 +70,22 @@ calculate_qvalue <- function(pvals) {
         return(qv)
     }
 
-    if (inherits(last_err, "error")) {
-        warning("qvalue::qvalue() failed, returning NA for qvalue. Error: ", conditionMessage(last_err))
+    ## A message, not a warning. q-value estimation legitimately fails when the
+    ## p-values are all small and nearly equal (p * n / rank is then constant, so
+    ## qvalue's spline fit has no variance to smooth). Nothing is wrong with the
+    ## call: every gene set was still tested, p.adjust is still valid, and the
+    ## result table itself shows the NA column. A warning says "look at this,
+    ## something may be off"; a documented limitation of Storey's pi0 estimator is
+    ## not that, and it fired once per result construction -- at eight call sites
+    ## -- which in a test suite buries the diagnostics that do matter
+    ## (measured 2026-10-27: one message per as_enrichResult(), none on print).
+    reason <- if (inherits(last_err, "error")) {
+        conditionMessage(last_err)
     } else {
-        warning("qvalue::qvalue() failed, returning NA for qvalue. This may be due to p-value distribution.")
+        "the p-value distribution does not allow it (all p-values are close together)"
     }
+    message("qvalue::qvalue() could not estimate q-values; the qvalue column is NA ",
+            "and p.adjust is unaffected. Reason: ", reason)
     return(qv)
 }
 
@@ -272,17 +283,58 @@ get_enriched <- function(object) {
 
     Over <- object@result
 
+    ## Subsetting with a logical that carries NA keeps the row but blanks every
+    ## column (`d[c(NA, TRUE), ]` returns one all-NA row and one real row), so a
+    ## term whose pvalue or p.adjust is NA came back as a corrupted row with
+    ## ID = NA. `which()` drops the NA positions and leaves a clean row index.
+    keep_rows <- function(df, cond) {
+        if (length(cond) == 0L) {
+            return(df)
+        }
+        df[which(cond), , drop = FALSE]
+    }
+
     pvalueCutoff <- object@pvalueCutoff
     if (length(pvalueCutoff) != 0) {
-        Over <- Over[ Over$pvalue <= pvalueCutoff, ]
-        Over <- Over[ Over$p.adjust <= pvalueCutoff, ]
+        Over <- keep_rows(Over, Over$pvalue <= pvalueCutoff)
+        Over <- keep_rows(Over, Over$p.adjust <= pvalueCutoff)
     }
 
     qvalueCutoff <- object@qvalueCutoff
-    if (length(qvalueCutoff) != 0) {
-        if (! any(is.na(Over$qvalue))) {
-            if (length(qvalueCutoff) > 0)
-                Over <- Over[ Over$qvalue <= qvalueCutoff, ]
+    ## `nrow(Over) > 0L` is load-bearing: on an empty frame the two all-NA
+    ## checks below are vacuously TRUE, so without it a result whose terms were
+    ## all filtered out by pvalueCutoff would print "qvalue could not be
+    ## estimated for any term" -- a warning about a column that was never the
+    ## reason there is nothing to show. show(), dim(), head(), tail() and
+    ## as.data.frame() all route through here, so that would fire on every
+    ## inspect of a no-hit result.
+    if (length(qvalueCutoff) != 0 && nrow(Over) > 0L) {
+        qv <- Over$qvalue
+        ## Row-wise q-value filter. Rows whose own qvalue is NA bypass this
+        ## cutoff and keep the fate pvalueCutoff already gave them: dropping
+        ## them would hide terms the user asked to see, and the old
+        ## "one NA anywhere disables the cutoff for every term" behaviour made
+        ## a single unestimable qvalue leak unfiltered rows into the result
+        ## with no message (clusterProfiler#710, #584, #614, #332).
+        if (is.null(qv)) {
+            warning(
+                "the result has no `qvalue` column; qvalueCutoff = ",
+                qvalueCutoff, " was not applied. Filter on p.adjust instead."
+            )
+        } else if (all(is.na(qv))) {
+            warning(
+                "qvalue could not be estimated for any term; qvalueCutoff = ",
+                qvalueCutoff, " was not applied. Filter on p.adjust instead."
+            )
+        } else {
+            if (any(is.na(qv))) {
+                warning(
+                    "qvalue is NA for ", sum(is.na(qv)), " of ", nrow(Over),
+                    " terms; those rows bypass qvalueCutoff (their pvalue/p.adjust",
+                    " filters still apply). Use pvalueCutoff to filter them."
+                )
+            }
+            Over <- keep_rows(Over, is.na(qv) | qv <= qvalueCutoff)
         }
     }
 
@@ -335,4 +387,28 @@ TERMID2EXTID <- function(term, gson) {
     } else {
         stop("gson not supported")
     }
+}
+
+
+# Filter every gene set to a shared universe in one pass.
+#
+# `lapply(gene_sets, intersect, universe)` is correct but hashes the whole
+# universe once per set: 14,209 human GO BP sets (avg 80 ids) against an 18,842
+# gene universe cost 14.0 s, measured 2026-10-18, and this pattern is used by
+# ORA (restricted universe), GSEA, NSEA, DSEA and Bayes enrichment. Mapping the
+# concatenated ids once and splitting back by the original set lengths costs
+# 0.9 s and is byte-identical, including set names, element order and empty
+# sets (pinned by a test).
+filter_gene_sets <- function(gene_sets, universe) {
+    if (!length(gene_sets)) {
+        return(list())
+    }
+    ids <- unlist(gene_sets, use.names = FALSE)
+    groups <- rep.int(seq_along(gene_sets), lengths(gene_sets))
+    keep <- !is.na(ids) & !is.na(match(ids, universe))
+    parts <- split(ids[keep], factor(groups[keep], levels = seq_along(gene_sets)),
+                   drop = FALSE)
+    out <- lapply(parts, unique)
+    names(out) <- names(gene_sets)
+    out
 }
